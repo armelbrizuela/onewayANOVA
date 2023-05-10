@@ -1,0 +1,151 @@
+---
+title: "Práctica de ANOVA de una vía"
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+Estos paquetes deben estar instalados:
+
+```{r}
+#| eval: false
+install.packages("hypr")
+install.packages("haven")
+install.packages("dplyr")
+install.packages("broom")
+install.packages("sjPlot")
+install.packages("forcats")
+```
+
+Active los siguientes paquetes.
+
+```{r}
+library(hypr)
+library(dplyr)
+library(haven)
+library(broom)
+library(sjPlot)
+library(forcats)
+```
+
+Importe el archivo de datos **smartphone.sav** con la función `read_sav()` y guarde el resultado en un objeto llamado `smartphone`.
+
+```{r}
+
+```
+
+Este archivo proviene del repositorio asociado al estudio publicado en Gao, Jia, Fua, Olufadib, Huanga (2020).
+
+Seleccione las variables `EducationalLevel` y `L`.
+
+```{r}
+
+```
+
+En cuanto a la variable `L`, en el artículo se dice lo siguiente (p. 3): *Smartphone use disorder was measured using the Mobile Phone Addiction Index* \[...\] *the Smartphone Use Disorder scale was used to measure developmental outcome of the participants instead of clinical diagnosis. High scores on the Smartphone Use Disorder measure indicates a higher tendency of addictive smartphone use*.
+
+Verifique con `glimpse()` qué tipos de columnas incluye el objeto `smartphone`.
+
+```{r}
+
+```
+
+Transforme la columna `EducationalLevel` en una variable de tipo `character` con las funciones `mutate()` y `as.character()`.
+
+```{r}
+smartphone <- smartphone |>
+  mutate( = as.character())
+```
+
+Transforme el predictor `EducationalLevel` en una variable de tipo `factor`.
+
+```{r}
+smartphone <- smartphone |>
+  mutate( = fct(, levels = c("1", "2", "3")))
+```
+
+Verifique que `EducationalLevel` es realmente una variable de tipo `factor` de dos maneras: con la función `is.factor()` y con la función `levels()`.
+
+```{r}
+is.factor()
+```
+
+```{r}
+levels()
+```
+
+Asigne nombres más informativos a los niveles de `EducationLevel` con la función `fct_recode()`. Para este ejemplo, `elementary = "1"`, `middle = "2"` y `high = "3"`.
+
+```{r}
+smartphone <- smartphone |>
+  mutate(EducationalLevel = fct_recode(
+    EducationalLevel, 
+    elementary = , 
+    middle = ,
+    high = ))
+```
+
+Verifique que el cambio se realizó con la función `levels()`.
+
+```{r}
+levels()
+```
+
+Para la variable `EducationalLevel` podríamos pensar en varias comparaciones, sin embargo, vamos a comparar la media de cada grupo con la gran media. En este ejemplo, la gran media corresponde simplemente a la media de la variable de respuesta (`L`) sin tomar en cuenta el nivel educativo de la persona.
+
+Recuerde que con un factor de $m$ niveles, solo podemos realizar $m-1$ contrastes.
+
+```{r}
+contrasts(smartphone$EducationalLevel) <- contr.hypothesis(
+  
+  CON1 =         , 
+  CON2 =         ,
+  
+  levels = levels(smartphone$EducationalLevel))
+
+contrasts()
+```
+
+Estime los modelos C y A. La variable de respuesta es `L` y el predictor es `EducationalLevel`.
+
+```{r}
+modeloC <- lm()
+modeloA <- lm()
+```
+
+Compare ambos modelos para ver si el modelo A con el predictor reduce significativamente el error respecto del modelo C sin predictores.
+
+```{r}
+anova() |>
+  tidy()
+```
+
+Muestre los coeficientes de regresión del modelo A.
+
+```{r}
+ |>
+  tidy(conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 5)))
+```
+
+Explique la relación que hay entre los valores calculados dentro del objeto `resumen` y los coeficientes de regresión del modelo A.
+
+```{r}
+resumen <- smartphone |>
+  summarise(.by = EducationalLevel, medias = mean(L)) |>
+  mutate(intercepto = mean(medias), pendiente = medias - intercepto)
+```
+
+La columna **medias** muestra las medias de cada grupo. La columna **intercepto** muestra la gran media, es decir, la media de las medias de los tres grupos. La columna **pendiente** muestra las diferencias de la media de cada grupo y la gran media. Aunque es posible calcular tres pendientes, los contrastes solo permiten poner a prueba la significancia estadística de dos diferencias, ya que la tercera diferencia es redundante.
+
+Muestre los gráficos de medias y de efectos (pendientes, coeficientes de regresión o diferencias de medias) para entender mejor los resultados.
+
+```{r}
+plot_model(    , terms = "EducationalLevel", type = "pred")
+plot_model(    , type = "est")
+```
+
+# Referencia
+
+Gao, Q., Jia, G., Fu, E., Olufadi, Y., & Huang, Y. (2020). A configurational investigation of smartphone use disorder among adolescents in three educational levels. *Addictive Behaviors*, *103*, 106231.

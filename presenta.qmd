@@ -1,0 +1,251 @@
+---
+title: "ANOVA de una vía"
+format: 
+  html:
+    embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+#| eval: false
+
+install.packages("hypr")
+install.packages("broom")
+install.packages("readr")
+install.packages("dplyr")
+install.packages("sjPlot")
+install.packages("ggplot2")
+install.packages("forcats")
+install.packages("effects")
+```
+
+```{r}
+
+library(hypr)
+library(broom)
+library(dplyr)
+library(readr)
+library(sjPlot)
+library(forcats)
+library(ggplot2)
+library(effects)
+```
+
+Hasta ahora hemos trabajado con modelos de uno o más predictores continuos (modelos de regresión).
+
+Ahora abordaremos modelos con predictores categóricos (modelos ANOVA). En este contexto, a los predictores categóricos se les suele llamar **factores**.
+
+Un factor puede tener dos o más categorías, llamadas **niveles** en este contexto.
+
+Ejemplos de factores: **grupo** (control-testPreparational), **región** (urbana-rural), **dosis** (baja-media-alta).
+
+Veamos el ejemplo que se empieza a desarrollar en la página 168 del libro.
+
+# Ejemplo con un factor de dos niveles
+
+```{r}
+testPreparation <- read_table("testPreparation.txt")
+```
+
+En R, es conveniente transformar los predictores categóricos en vectores tipo `factor`. Adicionalmente, podemos ordernar los niveles del factor para darle prioridad a uno de los niveles.
+
+```{r}
+testPreparation <- testPreparation |>
+  mutate(Group = fct(Group, levels = c("noCourse", "course")))
+```
+
+```{r}
+levels(testPreparation$Group)
+```
+
+Aunque los niveles de los factores son nombres, R los representa internamente con números.
+
+```{r}
+contrasts(testPreparation$Group)
+```
+
+A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se compararán las medias (en la variable de respuesta) de los grupos definidos por los niveles del factor.
+
+```{r}
+contrasts(testPreparation$Group) <- c(-1, 1)
+```
+
+```{r}
+contrasts(testPreparation$Group)
+```
+
+Vamos a estimar un modelo A(umentado) con un único predictor categórico de dos niveles. El modelo C(ompacto) no incluye ningún predictor, solo el intercepto.
+
+```{r}
+modeloC <- lm(SAT ~ 1, data = testPreparation)
+modeloA <- lm(SAT ~ 1 + Group, data = testPreparation)
+```
+
+Antes de ver los resultados, veamos cón qué números ingresó el predictor `Group` al modelo.
+
+```{r}
+model.matrix(modeloA)
+```
+
+Comparemos ambos modelos para determinar si el modelo A reduce significativamente el error.
+
+```{r}
+anova(modeloC, modeloA) |>
+  tidy()
+```
+
+Al incorporar `Group` al modelo, la reducción del error es "marginalmente" significativa.
+
+También podemos examinar el R cuadrado para conocer la proporción de varianza "explicada" del modelo.
+
+```{r}
+glance(modeloA) |>
+  select(r.squared)
+```
+
+Este resultado (**r.squared**) indica que el modelo A explica el 19.6% de la varianza de `SAT`.
+
+Ahora veamos los coeficientes de regresión y sus respectivos intervalos de confianza.
+
+```{r}
+modeloA |>
+  tidy(conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3)))
+```
+
+Para entender mejor cómo interpretar los coeficientes del modelo, vamos a **agregar** o **resumir** la variable `SAT` con base en el factor `Group`.
+
+```{r}
+resumen <- testPreparation |>
+  summarise(.by = Group, medias = mean(SAT)) |>
+  mutate(intercepto = mean(medias), pendiente = abs(intercepto - medias))
+```
+
+```{r}
+ggplot(resumen) +
+  geom_point(
+    aes(x = Group, y = medias)) +
+  geom_hline(
+    aes(yintercept = intercepto), linetype = "dotted") +
+  geom_segment(
+    aes(x="noCourse", xend="noCourse", y=intercepto, yend=intercepto - pendiente)) +
+  geom_segment(
+    aes(x="course", xend="course", y=intercepto, yend=intercepto + pendiente))
+```
+
+Ahora veamos los resultados si utilizamos otro tipo de códigos en lugar de -1 y 1.
+
+```{r}
+contrasts(testPreparation$Group) <- c(0, 1)
+contrasts(testPreparation$Group)
+```
+
+```{r}
+modeloA <- lm(SAT ~ 1 + Group, data = testPreparation)
+```
+
+```{r}
+modeloA |>
+  tidy(conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3)))
+```
+
+```{r}
+resumen <- testPreparation |>
+  summarise(.by = Group, medias = mean(SAT)) |>
+  mutate(intercepto = medias[2], pendiente = medias[1] - medias[2])
+```
+
+```{r}
+ggplot(resumen) +
+  geom_point(
+    aes(x = Group, y = medias)) +
+  geom_hline(
+    aes(yintercept = intercepto), linetype = "dotted") +
+  geom_segment(
+    aes(x="course", xend="course", y=intercepto, yend=intercepto + pendiente))
+```
+
+# Ejemplo con un factor de tres niveles
+
+En el libro, este ejemplo aparece en la página 178.
+
+```{r}
+feedback <- read_table("feedback.txt")
+```
+
+```{r}
+feedback <- feedback |>
+  mutate(Condition = fct(Condition, levels = c("NoFeedback", "Failure", "Success")))
+```
+
+Ahora veamos los códigos de contrastes asociados al factor.
+
+```{r}
+contrasts(feedback$Condition)
+```
+
+Con estos códigos, el grupo de referencia es `NoFeedback`, por lo tanto `lm()` realizará dos contrastes de medias:
+
+1.  La media en `Task` del grupo *NoFeedback* con la media del grupo *Failure*.
+
+2.  La media en `Task` del grupo *NoFeedback* con la media del grupo *Success*.
+
+Estas comparaciones podrían ser de interés o no, según las hipótesis y los objetivos del estudio. Otra posibilidad sería comparar la media de *Failure* con la media de *NoFeedback* y *Success*, para posteriormente comparar la media de *NoFeedback* con la media de *Success.*
+
+Es necesario especificar códigos de contrastes con ciertos valores para implementar dichas comparaciones.
+
+En el curso, utilizaremos el paquete **hypr** para crear esos códigos a partir de los nombres de los grupos.
+
+```{r}
+contrasts(feedback$Condition) <- contr.hypothesis(
+  
+  CON1 = Failure ~ (NoFeedback + Success)/2, 
+  CON2 = NoFeedback ~ Success,
+  
+  levels = levels(feedback$Condition))
+```
+
+El número de comparaciones que podemos realizar está limitado por la cantidad de niveles que tenga el factor. Si $m$ es la cantidad de niveles, entonces podremos realizar como máximo $m-1$ contrastes.
+
+```{r}
+contrasts(feedback$Condition)
+```
+
+```{r}
+modeloC <- lm(Task ~ 1, data = feedback)
+modeloA <- lm(Task ~ 1 + Condition, data = feedback)
+```
+
+```{r}
+anova(modeloA, modeloC)
+```
+
+```{r}
+modeloA |>
+  tidy(conf.int = TRUE) |>
+  select(term, estimate, conf.low, conf.high, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 5)))
+```
+
+Los coeficientes de regresión representan diferencias de medias en `Task` entre los grupos definidos por el factor `Condition`.
+
+```{r}
+resumen <- feedback |>
+  summarise(.by = Condition, medias = mean(Task)) |>
+  mutate(
+    CON1 = medias[1] - (medias[2] + medias[3])/2,
+    CON2 = medias[2] - medias[3])
+```
+
+```{r}
+plot_model(modeloA, terms = "Condition", type = "pred")
+```
+
+```{r}
+plot_model(modeloA, type = "est")
+```
