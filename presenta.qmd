@@ -60,16 +60,24 @@ testPreparation <- testPreparation |>
 levels(testPreparation$Group)
 ```
 
-Aunque los niveles de los factores son nombres, R los representa internamente con números.
+Aunque los niveles de los factores son nombres, R los representa internamente como números.
 
 ```{r}
 contrasts(testPreparation$Group)
 ```
 
-A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se compararán las medias (en la variable de respuesta) de los grupos definidos por los niveles del factor.
+A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se calculan los coeficientes de regresión.
+
+La [teoría matemática](https://cran.r-project.org/web/packages/codingMatrices/vignettes/codingMatrices.pdf) sobre cómo asociar los niveles de un factor a ciertos valores es compleja, por lo que la omitiremos y utilizaremos el paquete **hypr** para crear dichos códigos en términos de comparaciones de medias (en la variable de respuesta) de los grupos definidos por el factor.
+
+La función `contr.hypothesis()` nos permite establecer comparaciones de medias.
 
 ```{r}
-contrasts(testPreparation$Group) <- c(-1, 1)
+contrasts(testPreparation$Group) <- contr.hypothesis(
+  
+  course ~ (noCourse + course)/2,
+  
+  levels = c("noCourse", "course"))
 ```
 
 ```{r}
@@ -96,16 +104,16 @@ anova(modeloC, modeloA) |>
   tidy()
 ```
 
-Al incorporar `Group` al modelo, la reducción del error es "marginalmente" significativa.
+Al incorporar `Group` al modelo, la reducción del error es "marginalmente" significativa. También podría concluirse que la reducción del error no es significativa.
 
-También podemos examinar el R cuadrado para conocer la proporción de varianza "explicada" del modelo.
+Podemos examinar el R cuadrado para conocer la proporción de varianza de la `SAT` que es capaz de "explicar" el modelo A.
 
 ```{r}
 glance(modeloA) |>
   select(r.squared)
 ```
 
-Este resultado (**r.squared**) indica que el modelo A explica el 19.6% de la varianza de `SAT`.
+Este resultado indica que el modelo A explica aproximadamente el 19.6% de la varianza de `SAT`.
 
 Ahora veamos los coeficientes de regresión y sus respectivos intervalos de confianza.
 
@@ -113,7 +121,7 @@ Ahora veamos los coeficientes de regresión y sus respectivos intervalos de conf
 modeloA |>
   tidy(conf.int = TRUE) |>
   select(term, estimate, conf.low, conf.high, p.value) |>
-  mutate(across(where(is.numeric), \(x) round(x, 3)))
+  mutate(p.value = round(p.value, 2))
 ```
 
 Para entender mejor cómo interpretar los coeficientes del modelo, vamos a **agregar** o **resumir** la variable `SAT` con base en el factor `Group`.
@@ -121,7 +129,7 @@ Para entender mejor cómo interpretar los coeficientes del modelo, vamos a **agr
 ```{r}
 resumen <- testPreparation |>
   summarise(.by = Group, medias = mean(SAT)) |>
-  mutate(intercepto = mean(medias), pendiente = abs(intercepto - medias))
+  mutate(intercepto = mean(medias), pendiente = intercepto - medias)
 ```
 
 ```{r}
@@ -131,15 +139,23 @@ ggplot(resumen) +
   geom_hline(
     aes(yintercept = intercepto), linetype = "dotted") +
   geom_segment(
-    aes(x="noCourse", xend="noCourse", y=intercepto, yend=intercepto - pendiente)) +
+    aes(x="noCourse", xend="noCourse", y=intercepto, yend=intercepto - abs(pendiente))) +
   geom_segment(
-    aes(x="course", xend="course", y=intercepto, yend=intercepto + pendiente))
+    aes(x="course", xend="course", y=intercepto, yend=intercepto + abs(pendiente)))
 ```
 
-Ahora veamos los resultados si utilizamos otro tipo de códigos en lugar de -1 y 1.
+Ahora veamos los resultados si modificamos el tipo de comparación que nos interese realizar.
 
 ```{r}
-contrasts(testPreparation$Group) <- c(0, 1)
+contrasts(testPreparation$Group) <- contr.hypothesis(
+  
+  noCourse ~ 0, 
+  course ~ noCourse,
+  
+  levels = levels(testPreparation$Group))
+```
+
+```{r}
 contrasts(testPreparation$Group)
 ```
 
@@ -151,7 +167,7 @@ modeloA <- lm(SAT ~ 1 + Group, data = testPreparation)
 modeloA |>
   tidy(conf.int = TRUE) |>
   select(term, estimate, conf.low, conf.high, p.value) |>
-  mutate(across(where(is.numeric), \(x) round(x, 3)))
+  mutate(p.value = round(p.value, 2))
 ```
 
 ```{r}
@@ -195,26 +211,22 @@ Con estos códigos, el grupo de referencia es `NoFeedback`, por lo tanto `lm()` 
 
 2.  La media en `Task` del grupo *NoFeedback* con la media del grupo *Success*.
 
-Estas comparaciones podrían ser de interés o no, según las hipótesis y los objetivos del estudio. Otra posibilidad sería comparar la media de *Failure* con la media de *NoFeedback* y *Success*, para posteriormente comparar la media de *NoFeedback* con la media de *Success.*
-
-Es necesario especificar códigos de contrastes con ciertos valores para implementar dichas comparaciones.
-
-En el curso, utilizaremos el paquete **hypr** para crear esos códigos a partir de los nombres de los grupos.
+Estas comparaciones podrían ser de interés o no, según las hipótesis y los objetivos del estudio. Otra posibilidad sería comparar la media de *Failure* con la media de *NoFeedback*, para posteriormente comparar la media de *NoFeedback* con la media de *Success.*
 
 ```{r}
 contrasts(feedback$Condition) <- contr.hypothesis(
   
-  CON1 = Failure ~ (NoFeedback + Success)/2, 
-  CON2 = NoFeedback ~ Success,
+  COM1 = Failure ~ NoFeedback, 
+  COM2 = NoFeedback ~ Success,
   
-  levels = levels(feedback$Condition))
+  levels = c("NoFeedback", "Failure", "Success"))
 ```
-
-El número de comparaciones que podemos realizar está limitado por la cantidad de niveles que tenga el factor. Si $m$ es la cantidad de niveles, entonces podremos realizar como máximo $m-1$ contrastes.
 
 ```{r}
 contrasts(feedback$Condition)
 ```
+
+El número de comparaciones que podemos realizar está limitado por la cantidad de niveles que tenga el factor. Si $m$ es la cantidad de niveles, entonces solo podemos realizar $m-1$ contrastes.
 
 ```{r}
 modeloC <- lm(Task ~ 1, data = feedback)
@@ -222,24 +234,34 @@ modeloA <- lm(Task ~ 1 + Condition, data = feedback)
 ```
 
 ```{r}
-anova(modeloA, modeloC)
+anova(modeloC, modeloA) |>
+  tidy()
 ```
 
 ```{r}
 modeloA |>
   tidy(conf.int = TRUE) |>
   select(term, estimate, conf.low, conf.high, p.value) |>
-  mutate(across(where(is.numeric), \(x) round(x, 5)))
+  mutate(p.value = round(p.value, 2))
 ```
 
 Los coeficientes de regresión representan diferencias de medias en `Task` entre los grupos definidos por el factor `Condition`.
 
 ```{r}
-resumen <- feedback |>
-  summarise(.by = Condition, medias = mean(Task)) |>
-  mutate(
-    CON1 = medias[1] - (medias[2] + medias[3])/2,
-    CON2 = medias[2] - medias[3])
+feedback |>
+  summarise(.by = Condition, medias = mean(Task))
+```
+
+```{r}
+
+# (Intercept)
+(3.000	+ 3.750 + 4.375)/3
+
+# ConditionCOM1
+3.000 - 3.750	
+
+# ConditionCOM2
+3.750 - 4.375
 ```
 
 ```{r}
@@ -249,3 +271,5 @@ plot_model(modeloA, terms = "Condition", type = "pred")
 ```{r}
 plot_model(modeloA, type = "est")
 ```
+
+En conclusión, cuando estimamos modelos con variables categóricas (factores) debemos asociar códigos de contraste apropiados a los niveles de cada factor para que R lleve a cabo las comparaciones de medias que nos interese realizar.
