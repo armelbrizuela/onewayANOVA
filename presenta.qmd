@@ -21,7 +21,7 @@ install.packages("forcats")
 install.packages("effects")
 ```
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
 
 library(hypr)
 library(broom)
@@ -39,7 +39,7 @@ Ahora abordaremos modelos con predictores categóricos (modelos ANOVA). En este 
 
 Un factor puede tener dos o más categorías, llamadas **niveles** en este contexto.
 
-Ejemplos de factores: **grupo** (control-testPreparational), **región** (urbana-rural), **dosis** (baja-media-alta).
+Ejemplos de factores: **grupo** (control - experimental a - experimental b), **región** (urbana - rural), **dosis** (baja - media - alta).
 
 Veamos el ejemplo que se empieza a desarrollar en la página 168 del libro.
 
@@ -49,7 +49,7 @@ Veamos el ejemplo que se empieza a desarrollar en la página 168 del libro.
 testPreparation <- read_table("testPreparation.txt")
 ```
 
-En R, es conveniente transformar los predictores categóricos en vectores tipo `factor`. Adicionalmente, podemos ordernar los niveles del factor para darle prioridad a uno de los niveles.
+En R, es conveniente transformar los predictores categóricos en variables tipo `factor`. Adicionalmente, podemos ordernar los niveles del factor.
 
 ```{r}
 testPreparation <- testPreparation |>
@@ -66,11 +66,11 @@ Aunque los niveles de los factores son nombres, R los representa internamente co
 contrasts(testPreparation$Group)
 ```
 
-A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se calculan los coeficientes de regresión.
+A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se calculan los coeficientes de regresión cuando la variable en cuestión se utiliza como predictor.
 
 La [teoría matemática](https://cran.r-project.org/web/packages/codingMatrices/vignettes/codingMatrices.pdf) sobre cómo asociar los niveles de un factor a ciertos valores es compleja, por lo que la omitiremos y utilizaremos el paquete **hypr** para crear dichos códigos en términos de comparaciones de medias (en la variable de respuesta) de los grupos definidos por el factor.
 
-La función `contr.hypothesis()` nos permite establecer comparaciones de medias.
+La función `contr.hypothesis()` del paquete **hypr** nos permite establecer comparaciones de medias.
 
 ```{r}
 contrasts(testPreparation$Group) <- contr.hypothesis(
@@ -84,14 +84,14 @@ contrasts(testPreparation$Group) <- contr.hypothesis(
 contrasts(testPreparation$Group)
 ```
 
-Vamos a estimar un modelo A(umentado) con un único predictor categórico de dos niveles. El modelo C(ompacto) no incluye ningún predictor, solo el intercepto.
+Vamos a estimar un modelo A(umentado) con el predictor categórico `Group`, el cual tiene dos niveles definidos como -1 y 1. El modelo C(ompacto) no incluye ningún predictor, solo el intercepto.
 
 ```{r}
 modeloC <- lm(SAT ~ 1, data = testPreparation)
 modeloA <- lm(SAT ~ 1 + Group, data = testPreparation)
 ```
 
-Antes de ver los resultados, veamos cón qué números ingresó el predictor `Group` al modelo.
+Antes de ver los resultados, veamos cómo se representan los niveles del factor `Group` (-1 y 1) en el modelo.
 
 ```{r}
 model.matrix(modeloA)
@@ -106,7 +106,7 @@ anova(modeloC, modeloA) |>
 
 Al incorporar `Group` al modelo, la reducción del error es "marginalmente" significativa. También podría concluirse que la reducción del error no es significativa.
 
-Podemos examinar el R cuadrado para conocer la proporción de varianza de la `SAT` que es capaz de "explicar" el modelo A.
+Podemos examinar el R cuadrado para conocer la proporción de varianza de `SAT` que es capaz de "explicar" el modelo A.
 
 ```{r}
 glance(modeloA) |>
@@ -130,6 +130,8 @@ Para entender mejor cómo interpretar los coeficientes del modelo, vamos a **agr
 resumen <- testPreparation |>
   summarise(.by = Group, medias = mean(SAT)) |>
   mutate(intercepto = mean(medias), pendiente = intercepto - medias)
+
+resumen
 ```
 
 ```{r}
@@ -163,6 +165,16 @@ contrasts(testPreparation$Group)
 modeloA <- lm(SAT ~ 1 + Group, data = testPreparation)
 ```
 
+El error y la varianza explicada son iguales que los del modelo A estimado anteriormente.
+
+```{r}
+anova(modeloC, modeloA) |>
+  tidy()
+
+glance(modeloA) |>
+  select(r.squared)
+```
+
 ```{r}
 modeloA |>
   tidy(conf.int = TRUE) |>
@@ -174,6 +186,8 @@ modeloA |>
 resumen <- testPreparation |>
   summarise(.by = Group, medias = mean(SAT)) |>
   mutate(intercepto = medias[2], pendiente = medias[1] - medias[2])
+
+resumen
 ```
 
 ```{r}
@@ -196,7 +210,8 @@ feedback <- read_table("feedback.txt")
 
 ```{r}
 feedback <- feedback |>
-  mutate(Condition = fct(Condition, levels = c("NoFeedback", "Failure", "Success")))
+  mutate(Condition = fct(Condition, 
+                         levels = c("NoFeedback", "Failure", "Success")))
 ```
 
 Ahora veamos los códigos de contrastes asociados al factor.
@@ -269,7 +284,7 @@ plot_model(modeloA, terms = "Condition", type = "pred")
 ```
 
 ```{r}
-plot_model(modeloA, type = "est")
+plot_model(modeloA, type = "est", show.values = TRUE, se = TRUE)
 ```
 
-En conclusión, cuando estimamos modelos con variables categóricas (factores) debemos asociar códigos de contraste apropiados a los niveles de cada factor para que R lleve a cabo las comparaciones de medias que nos interese realizar.
+En conclusión, cuando estimamos modelos con variables categóricas (factores) debemos cdefinir códigos de contraste apropiados a los niveles de cada factor para que R lleve a cabo las comparaciones de medias que nos interese realizar.
