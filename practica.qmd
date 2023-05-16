@@ -1,5 +1,5 @@
 ---
-title: "Práctica de ANOVA de una vía"
+title: "Respuestas de Práctica de ANOVA de una vía"
 editor: visual
 editor_options: 
   chunk_output_type: inline
@@ -17,7 +17,7 @@ install.packages("sjPlot")
 install.packages("forcats")
 ```
 
-Active los paquetes instalados.
+Active los siguientes paquetes.
 
 ```{r, warning = FALSE, message = FALSE}
 
@@ -32,7 +32,7 @@ library(forcats)
 Importe el archivo de datos **smartphone.sav** con la función `read_sav()` y guarde el resultado en un objeto llamado `smartphone`.
 
 ```{r}
-
+smartphone <- read_sav("smartphone.sav")
 ```
 
 Este archivo proviene del repositorio asociado al estudio publicado en Gao, Jia, Fua, Olufadib, Huanga (2020).
@@ -40,7 +40,8 @@ Este archivo proviene del repositorio asociado al estudio publicado en Gao, Jia,
 Seleccione las variables `EducationalLevel` y `L`.
 
 ```{r}
-
+smartphone <- smartphone |>
+  select(EducationalLevel, L)
 ```
 
 En cuanto a la variable `L`, en el artículo se dice lo siguiente (p. 3): *Smartphone use disorder was measured using the Mobile Phone Addiction Index* \[...\] *the Smartphone Use Disorder scale was used to measure developmental outcome of the participants instead of clinical diagnosis. High scores on the Smartphone Use Disorder measure indicates a higher tendency of addictive smartphone use*.
@@ -48,31 +49,31 @@ En cuanto a la variable `L`, en el artículo se dice lo siguiente (p. 3): *Smart
 Verifique con `glimpse()` qué tipos de columnas incluye el objeto `smartphone`.
 
 ```{r}
-
+glimpse(smartphone)
 ```
 
 Transforme la columna `EducationalLevel` en una variable de tipo `character` con las funciones `mutate()` y `as.character()`.
 
 ```{r}
 smartphone <- smartphone |>
-  mutate( = as.character())
+  mutate(EducationalLevel = as.character(EducationalLevel))
 ```
 
 Transforme el predictor `EducationalLevel` en una variable de tipo `factor`.
 
 ```{r}
 smartphone <- smartphone |>
-  mutate( = fct(, levels = c("1", "2", "3")))
+  mutate(EducationalLevel = fct(EducationalLevel, levels = c("1", "2", "3")))
 ```
 
 Verifique que `EducationalLevel` es realmente una variable de tipo `factor` de dos maneras: con la función `is.factor()` y con la función `levels()`.
 
 ```{r}
-is.factor()
+is.factor(smartphone$EducationalLevel)
 ```
 
 ```{r}
-levels()
+levels(smartphone$EducationalLevel)
 ```
 
 Asigne nombres más informativos a los niveles de `EducationLevel` con la función `fct_recode()`. Para este ejemplo, `elementary = "1"`, `middle = "2"` y `high = "3"`.
@@ -81,15 +82,15 @@ Asigne nombres más informativos a los niveles de `EducationLevel` con la funci�
 smartphone <- smartphone |>
   mutate(EducationalLevel = fct_recode(
     EducationalLevel, 
-    elementary = , 
-    middle = ,
-    high = ))
+    elementary = "1", 
+    middle = "2",
+    high = "3"))
 ```
 
 Verifique que el cambio se realizó con la función `levels()`.
 
 ```{r}
-levels()
+levels(smartphone$EducationalLevel)
 ```
 
 Para la variable `EducationalLevel` podríamos pensar en varias comparaciones, sin embargo, vamos a comparar la media de cada grupo con la gran media. En este ejemplo, la gran media corresponde simplemente a la media de la variable de respuesta (`L`) sin tomar en cuenta el nivel educativo de la persona.
@@ -99,32 +100,32 @@ Recuerde que con un factor de $m$ niveles, solo podemos realizar $m-1$ contraste
 ```{r}
 contrasts(smartphone$EducationalLevel) <- contr.hypothesis(
   
-  CON1 =         , 
-  CON2 =         ,
+  CON1 = elementary ~ (elementary + middle + high)/3, 
+  CON2 = middle ~ (elementary + middle + high)/3,
   
   levels = levels(smartphone$EducationalLevel))
 
-contrasts()
+contrasts(smartphone$EducationalLevel)
 ```
 
 Estime los modelos C y A. La variable de respuesta es `L` y el predictor es `EducationalLevel`.
 
 ```{r}
-modeloC <- lm()
-modeloA <- lm()
+modeloC <- lm(L ~ 1, data = smartphone)
+modeloA <- lm(L ~ 1 + EducationalLevel, data = smartphone)
 ```
 
 Compare ambos modelos para ver si el modelo A con el predictor reduce significativamente el error respecto del modelo C sin predictores.
 
 ```{r}
-anova() |>
+anova(modeloC, modeloA) |>
   tidy()
 ```
 
 Muestre los coeficientes de regresión del modelo A.
 
 ```{r}
- |>
+modeloA |>
   tidy(conf.int = TRUE) |>
   select(term, estimate, conf.low, conf.high, p.value) |>
   mutate(across(where(is.numeric), \(x) round(x, 5)))
@@ -138,13 +139,13 @@ resumen <- smartphone |>
   mutate(intercepto = mean(medias), pendiente = medias - intercepto)
 ```
 
-La columna **medias** muestra las medias de cada grupo. La columna **intercepto** muestra la gran media, es decir, la media de las medias de los tres grupos. La columna **pendiente** muestra las diferencias de la media de cada grupo y la gran media. Aunque es posible calcular tres pendientes, los contrastes solo permiten poner a prueba la significancia estadística de dos diferencias, ya que la tercera diferencia es redundante.
+La columna **medias** muestra las medias de cada grupo. La columna **intercepto** muestra la gran media, es decir, la media de las medias de los tres grupos. La columna **pendiente** muestra las diferencias de la media de cada grupo y la gran media. Aunque es posible calcular tres diferencias de medias, los contrastes solo permiten poner a prueba la significancia estadística de dos diferencias, ya que la tercera diferencia es redundante una vez que se conoce el resultado de las otras dos.
 
 Muestre los gráficos de medias y de efectos (pendientes, coeficientes de regresión o diferencias de medias) para entender mejor los resultados.
 
 ```{r}
-plot_model(    , terms = "EducationalLevel", type = "pred")
-plot_model(    , type = "est")
+plot_model(modeloA, terms = "EducationalLevel", type = "pred")
+plot_model(modeloA, type = "est")
 ```
 
 # Referencia
