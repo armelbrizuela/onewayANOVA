@@ -68,7 +68,7 @@ contrasts(testPreparation$Group)
 
 A estos números se les llama **códigos de contraste** (*contrast codes*) y determinan cómo se calculan los coeficientes de regresión cuando la variable en cuestión se utiliza como predictor.
 
-La [teoría matemática](https://cran.r-project.org/web/packages/codingMatrices/vignettes/codingMatrices.pdf) sobre cómo asociar los niveles de un factor a ciertos valores es compleja, por lo que la omitiremos y utilizaremos el paquete **hypr** para crear dichos códigos en términos de comparaciones de medias (en la variable de respuesta) de los grupos definidos por el factor.
+La [teoría matemática](https://cran.r-project.org/web/packages/codingMatrices/vignettes/codingMatrices.pdf) sobre cómo asociar los niveles de un factor a ciertos valores es compleja, por lo que la omitiremos y utilizaremos el paquete **hypr** para crear dichos códigos en términos de comparaciones de medias (en la variable de respuesta) de los grupos definidos por el factor. Para las personas interesadas en saber más sobre este tema, puede consultar las siguientes fuentes: [1](https://youtu.be/fXDNBeY2qp0), [2](https://mspeekenbrink.github.io/sdam-r-companion/contrast-coding-and-oneway-anova.html) y [3](https://www.sciencedirect.com/science/article/pii/S0749596X19300695).
 
 La función `contr.hypothesis()` del paquete **hypr** nos permite establecer comparaciones de medias.
 
