@@ -284,7 +284,7 @@ plot_model(modeloA, terms = "Condition", type = "pred")
 ```
 
 ```{r}
-plot_model(modeloA, type = "est", show.values = TRUE, se = TRUE)
+plot_model(modeloA, type = "est", show.values = TRUE, se = FALSE)
 ```
 
 En conclusión, cuando estimamos modelos con variables categóricas (factores) debemos cdefinir códigos de contraste apropiados a los niveles de cada factor para que R lleve a cabo las comparaciones de medias que nos interese realizar.
