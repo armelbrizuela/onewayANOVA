@@ -2,7 +2,7 @@
 title: "Práctica de ANOVA de una vía"
 editor: visual
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 Estos paquetes deben estar instalados:
@@ -17,9 +17,10 @@ install.packages("sjPlot")
 install.packages("forcats")
 ```
 
-Active los siguientes paquetes.
+Active los paquetes instalados.
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
+
 library(hypr)
 library(dplyr)
 library(haven)
